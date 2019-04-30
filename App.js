@@ -2,6 +2,10 @@ import * as React from 'react';
 import { Text, View, KeyboardAvoidingView, StyleSheet, Button, ScrollView, ActivityIndicator, TextInput, Alert} from 'react-native';
 import { createStackNavigator, createAppContainer } from 'react-navigation';
 
+
+
+
+
 //Stylesheet for the program
 const styles = StyleSheet.create({
   containerLayout: {
@@ -18,27 +22,74 @@ const styles = StyleSheet.create({
     borderColor: 'black',
     borderWidth: 1,
     width: '100%',
-    height: 40,
+    height: 60,
+    paddingLeft: 3
   },
+  
 })
 
-//Class for the notes screen
-class NotesList extends React.Component {
 
-  //Header text
+
+
+
+//Class for the main menu
+//Main menu has two buttons, one for the noteslist and one that takes user to the screen where they can write a new note
+class MainMenu extends React.Component{
+    static navigationOptions = {
+        title: "Welcome",
+    };
+
+    state = {
+        error: false,
+    }
+
+    render() {
+        const{navigate} = this.props.navigation
+
+        if (this.state.error) {
+            return (
+                <View>
+                    <Text>
+                        Failed to load menus!
+                    </Text>
+                </View>
+            )
+        }
+
+        //Between the buttons is an empty text so the buttons wouldn't touch eachother
+        return (
+            <View>
+                <Button title="Notes" onPress={() => navigate('Notes', {name: 'Notes'})} />
+                
+                <Text></Text>
+                
+                <Button title="Add a new Note" onPress={() => navigate('Addnotescreen', {name: 'Addnotescreen'})} />
+            </View>
+        )
+    }//render()
+}//MainMenu
+
+
+
+
+
+class AddNoteScreen extends React.Component {
+   
+  //Header
   static navigationOptions = {
-    title: "Notes"
+      title: "Add a new note"
   }
 
   state = {
-    loading: true,
-    error: false,
-    newNote: '',
-    notes: []
+      loading: true,
+      error: false,
+      newNote: '',
+      notes: []
   }
 
 
   //Notes are loaded in JSON form from JSON file
+  //We have to fetch notes from the database and put them in to the notes[] array so the checks for duplicates and empty notes work
   componentDidMount = async () => {
     try {
       const response = await fetch("https://quiet-lowlands-76670.herokuapp.com/api/notes")
@@ -48,13 +99,6 @@ class NotesList extends React.Component {
     } catch(e) {
       this.setState({loading: false, error: true})
     }
-  }
-
-
-  listNotes = ({id, content}) => {
-    return (
-      <Text key={id}>{content}</Text>
-    )
   }
 
 
@@ -75,6 +119,7 @@ class NotesList extends React.Component {
     )
   }//duplicateAlert()
 
+
   //Alert for empty note
   emptyAlert = () => {
     Alert.alert(
@@ -92,6 +137,23 @@ class NotesList extends React.Component {
     )
   }//emptyAlert()
 
+
+  //Alert that lets user know, that a new note has been successfully added to the database
+  noteAddedAlert = () => {
+    Alert.alert(
+      //Warning header
+      'Success',
+
+      //Warning message
+      'Note added successfully',
+      [
+        {
+          text: 'OK',
+          onPress: () => console.log('noteAddedAlert() OK pressed')
+        }
+      ]
+    )
+  }
 
   //To add note into the database, we need to make a POST request to the server
   addNote = async () => {
@@ -123,10 +185,93 @@ class NotesList extends React.Component {
         })
 
       //After making the request, we need to update the notes array, so we can show the new note
-      }).then(response => response.json()).then(json => this.setState({notes: this.state.notes.concat(json)}))//fetch
+      })//.then(response => response.json()).then(json => this.setState({notes: this.state.notes.concat(json)}))//fetch
+      this.noteAddedAlert()
+    
+    }//else{}
 
+  }//AddNote()
+
+
+  render() {
+    const {navigate} = this.props.navigation;
+
+    //While loading JSON file, show animated loading indicator
+    if (this.state.loading) {
+      return (
+        <View>
+          <ActivityIndicator animating={true} />
+        </View>
+      )
     }
-  }//addNote
+
+    //If notes could not be loaded, show error text
+    if (this.state.error) {
+      return (
+        <View>
+          <Text>
+            Failed to connect to the database
+          </Text>
+        </View>
+      )
+    }
+
+    //Again, there is an empty text between the components so they wouldn't touch
+    return (
+      <KeyboardAvoidingView style={styles.containerLayout} behavior="padding" enabled>
+
+        <TextInput
+          style={styles.input}
+          onChangeText={(newNote) => this.setState({newNote})} 
+          placeholder="Write note here"
+          clearButtonMode='always'/>
+        
+        <Text></Text>
+        
+        <Button style={styles.buttonStyle} title="add note" onPress={this.addNote} />
+      </KeyboardAvoidingView>
+    )     
+  
+  }//render()
+}//AddNoteScreen
+
+
+
+
+
+//Class for the noteslist screen
+class NotesList extends React.Component {
+
+  //Header text
+  static navigationOptions = {
+    title: "Notes"
+  }
+
+  state = {
+    loading: true,
+    error: false,
+    notes: []
+  }
+
+
+  //Notes are loaded in JSON form from JSON file
+  componentDidMount = async () => {
+    try {
+      const response = await fetch("https://quiet-lowlands-76670.herokuapp.com/api/notes")
+      const notes = await response.json()
+      this.setState({loading: false, notes})
+
+    } catch(e) {
+      this.setState({loading: false, error: true})
+    }
+  }
+
+
+  listNotes = ({id, content}) => {
+    return (
+      <Text key={id}>{content}</Text>
+    )
+  }
 
 
   render() {
@@ -154,32 +299,26 @@ class NotesList extends React.Component {
 
     //Notes are shown in their own scrollview
     return (
-      <KeyboardAvoidingView style={styles.containerLayout} behavior="padding" enabled>
-
-        <ScrollView contentContainerStyle={styles.notesLayout}>
-          {this.state.notes.map(this.listNotes)}
-        </ScrollView>
-
-        
-        <TextInput
-          style={styles.input}
-          onChangeText={(newNote) => this.setState({newNote})} 
-          placeholder="Write note here"
-          clearButtonMode='always'/>
-
-        <Button title="add note" onPress={this.addNote} />
-      </KeyboardAvoidingView>
+      <ScrollView contentContainerStyle={styles.notesLayout}>
+        {this.state.notes.map(this.listNotes)}
+      </ScrollView>
+    
     )    
   }//render()
 } //NotesList
 
 
+
+
+
 const AppNavigator = createStackNavigator(
   {
-    Notes: NotesList
+    Mainmenu: MainMenu,
+    Notes: NotesList,
+    Addnotescreen: AddNoteScreen
   },
   {
-    initialRouteName: "Notes"
+    initialRouteName: "Mainmenu"
   }
 )
 
